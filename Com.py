@@ -21,6 +21,9 @@ class Com() :
         with self.clock_semaphore :
             self.clock = max(self.clock, clock) + 1
     
+    def getMessage(self) :
+        return self.boite_aux_lettre.pop(0)
+    
     def broadcast(self, obj) :
         self.inc_clock()
         msg = BroadcastMessage(self.getMyId(), obj, self.getClock())
@@ -41,3 +44,5 @@ class Com() :
         if msg.getDest() == self.getMyId() :
             self.change_clock(msg.getClock())
             self.boite_aux_lettre.append(msg)
+    
+    
