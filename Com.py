@@ -5,10 +5,15 @@ from messages.BroadcastMessage import BroadcastMessage
 from pyeventbus3.pyeventbus3 import *
 
 class Com() :
-    def __init__(self):
+    def __init__(self, myId):
         self.clock = 0
         self.clock_semaphore = threading.Semaphore(1)
         self.boite_aux_lettre = []
+        self.myId = myId
+        PyBus.Instance().register(self, self)
+    
+    def getMyId(self) :
+        return self.myId
     
     def getClock(self) :
         return self.clock
@@ -19,10 +24,16 @@ class Com() :
     
     def change_clock(self, clock) :
         with self.clock_semaphore :
-            self.clock = max(self.clock, clock) + 1
+            self.clock = max(self.clock, int(clock)) + 1
     
     def getMessage(self) :
-        return self.boite_aux_lettre.pop(0)
+        if len(self.boite_aux_lettre) > 0 :
+            msg = self.boite_aux_lettre.pop(0)
+            return msg.getPayload()
+        return None
+    
+    def getNumberMessage(self) :
+        return len(self.boite_aux_lettre)
     
     def broadcast(self, obj) :
         self.inc_clock()
@@ -35,9 +46,9 @@ class Com() :
             self.change_clock(msg.getClock())
             self.boite_aux_lettre.append(msg)
     
-    def sendTo(self, obj, receiver) :
+    def sendTo(self, obj, dest) :
         self.inc_clock()
-        PyBus.Instance().post(Message(self.getMyId(), receiver, obj))
+        PyBus.Instance().post(MessageTo(obj, dest, self.getClock()))
 
     @subscribe(threadMode = Mode.PARALLEL, onEvent=MessageTo)
     def onReceive(self, msg) :

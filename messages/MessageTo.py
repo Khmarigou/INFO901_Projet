@@ -4,6 +4,7 @@ class MessageTo(Message) :
     def __init__(self, payload, dest, clock):
         super().__init__(payload)
         self.clock = clock
+        self.dest = dest
 
     def getPayload(self):
         return self.payload
