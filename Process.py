@@ -9,8 +9,6 @@ from time import sleep
 
 #from EventBus import EventBus
 
-from pyeventbus3.pyeventbus3 import *
-
 class Process(Thread):
     nbProcessCreated = 0
     def __init__(self, name, npProcess):
@@ -21,7 +19,6 @@ class Process(Thread):
         Process.nbProcessCreated +=1
         self.setName(name)
 
-        PyBus.Instance().register(self, self)
 
         self.horloge = 0
 
