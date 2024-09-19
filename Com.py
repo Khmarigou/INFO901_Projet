@@ -13,6 +13,8 @@ class Com() :
         self.clock_semaphore = threading.Semaphore(1)
         self.request_lock = threading.Event()
         self.token_lock = threading.Event()
+        self.sync_lock = threading.Event()
+        self.syncbroadcast_lock = threading.Event()
         self.boite_aux_lettre = []
         self.myId = myId
         self.etat = "null"
@@ -50,8 +52,11 @@ class Com() :
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, msg) :
         if msg.getSender() != self.getMyId() :
-            self.change_clock(msg.getClock())
-            self.boite_aux_lettre.append(msg)
+            if msg.getPayload() == "sync" :
+                self.syncbroadcast_lock.set()
+            else :
+                self.change_clock(msg.getClock())
+                self.boite_aux_lettre.append(msg)
     
     def sendTo(self, obj, dest) :
         self.inc_clock()
@@ -60,8 +65,11 @@ class Com() :
     @subscribe(threadMode = Mode.PARALLEL, onEvent=MessageTo)
     def onReceive(self, msg) :
         if msg.getDest() == self.getMyId() :
-            self.change_clock(msg.getClock())
-            self.boite_aux_lettre.append(msg)
+            if msg.getPayload() == "sync" :
+                self.sync_lock.set()
+            else :
+                self.change_clock(msg.getClock())
+                self.boite_aux_lettre.append(msg)
     
     def requestSC(self) :
         self.etat = "request"
@@ -93,6 +101,23 @@ class Com() :
         dest = (self.myId + 1) % self.npProcess
         print(f"sendFirstToken to {str(dest)}")
         PyBus.Instance().post(Token(dest))
+
+    def synchronize(self) :
+        if self.myId == self.npProcess -1 :
+            self.sendTo("sync", self.myId - 1)
+            self.syncbroadcast_lock.clear()
+            self.syncbroadcast_lock.wait(10)
+        elif self.myId == 0 :
+            self.sync_lock.clear()
+            self.sync_lock.wait(10)
+            self.broadcast("sync")
+        else :
+            self.sync_lock.clear()
+            self.sync_lock.wait(10)
+            self.sendTo("sync", self.myId - 1)
+            self.syncbroadcast_lock.clear()
+            self.syncbroadcast_lock.wait(10)
+
 
     def stop(self):
         self.isAlive = False
