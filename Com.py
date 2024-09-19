@@ -2,14 +2,20 @@ import threading
 from messages.Message import Message
 from messages.MessageTo import MessageTo
 from messages.BroadcastMessage import BroadcastMessage
+from Token import Token
 from pyeventbus3.pyeventbus3 import *
+from time import sleep
 
 class Com() :
-    def __init__(self, myId):
+    def __init__(self, myId, npProcess) :
         self.clock = 0
+        self.npProcess = npProcess
         self.clock_semaphore = threading.Semaphore(1)
+        self.token_semaphore = threading.Semaphore(0)
         self.boite_aux_lettre = []
         self.myId = myId
+        self.etat = "null"
+        self.isAlive = True
         PyBus.Instance().register(self, self)
     
     def getMyId(self) :
@@ -56,4 +62,35 @@ class Com() :
             self.change_clock(msg.getClock())
             self.boite_aux_lettre.append(msg)
     
+    def requestSC(self) :
+        self.etat = "request"
+        self.token_semaphore.acquire()
     
+    def releaseSC(self) :
+        self.etat = "release"
+        self.token_semaphore.release()
+    
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=Token)
+    def onToken(self, token):
+        if token.getDest() == self.myId :
+            print(f"{self.getMyId()} receives token, state : {self.etat}")
+            sleep(1)
+            if self.etat == "request" :
+                self.token_semaphore.release()
+                print(f"{self.getMyId()} in SC")
+                self.etat = "SC"
+                self.token_semaphore.acquire()
+                print(f"{self.getMyId()} exit SC")
+                self.etat = "null"
+            if self.isAlive :
+                print(f"{self.getMyId()} sends token to {(self.myId + 1) % self.npProcess}")
+                token.setDest((self.myId + 1) % self.npProcess)
+                PyBus.Instance().post(token)
+    
+    def sendFirstToken(self) :
+        dest = (self.myId + 1) % self.npProcess
+        print(f"sendFirstToken to {str(dest)}")
+        PyBus.Instance().post(Token(dest))
+
+    def stop(self):
+        self.isAlive = False
