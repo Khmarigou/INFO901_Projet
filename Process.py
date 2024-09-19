@@ -65,7 +65,12 @@ class Process(Thread):
                 # self.com.releaseSC()
 
 
-            # if self.getName() == "P1":
+            if self.getName() == "P1":
+                self.com.requestSC()
+                print("P1 in SC")
+                sleep(randint(1, 5))
+                self.com.releaseSC()
+                print("P1 exit SC")
                 # if not self.com.mailbox.isEmpty():
                 #     self.com.mailbox.getMessage()
                 #     self.com.recevFromSync(msg, 0)

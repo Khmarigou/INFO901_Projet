@@ -11,7 +11,8 @@ class Com() :
         self.clock = 0
         self.npProcess = npProcess
         self.clock_semaphore = threading.Semaphore(1)
-        self.token_semaphore = threading.Semaphore(0)
+        self.request_lock = threading.Event()
+        self.token_lock = threading.Event()
         self.boite_aux_lettre = []
         self.myId = myId
         self.etat = "null"
@@ -64,25 +65,26 @@ class Com() :
     
     def requestSC(self) :
         self.etat = "request"
-        self.token_semaphore.acquire()
+        print(f"{self.getMyId()} request SC")
+        self.request_lock.clear()
+        self.request_lock.wait(10)
     
     def releaseSC(self) :
         self.etat = "release"
-        self.token_semaphore.release()
+        print(f"{self.getMyId()} release SC")
+        self.token_lock.set()
     
     @subscribe(threadMode = Mode.PARALLEL, onEvent=Token)
     def onToken(self, token):
-        if token.getDest() == self.myId :
-            print(f"{self.getMyId()} receives token, state : {self.etat}")
-            sleep(1)
-            if self.etat == "request" :
-                self.token_semaphore.release()
-                print(f"{self.getMyId()} in SC")
-                self.etat = "SC"
-                self.token_semaphore.acquire()
-                print(f"{self.getMyId()} exit SC")
-                self.etat = "null"
-            if self.isAlive :
+        if self.isAlive :
+            if token.getDest() == self.myId :
+                sleep(1)
+                print(f"{self.getMyId()} receives token, state : {self.etat}")
+                if self.etat == "request" :
+                    self.request_lock.set()
+                    self.etat = "SC"
+                    self.token_lock.clear()
+                    self.token_lock.wait(10)
                 print(f"{self.getMyId()} sends token to {(self.myId + 1) % self.npProcess}")
                 token.setDest((self.myId + 1) % self.npProcess)
                 PyBus.Instance().post(token)
