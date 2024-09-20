@@ -14,7 +14,7 @@ class Com() :
         myId : int : id of the process
         npProcess : int : number total of process
     '''
-    def __init__(self, myId, npProcess) :
+    def __init__(self, myId : int, npProcess) :
         self.clock = 0
         self.npProcess = npProcess
         self.clock_semaphore = threading.Semaphore(1)
@@ -28,33 +28,33 @@ class Com() :
         self.isAlive = True
         PyBus.Instance().register(self, self)
     
-    def getMyId(self) :
+    def getMyId(self) -> int :
         '''
         Return the id of the process
         '''
         return self.myId
     
-    def getClock(self) :
+    def getClock(self) -> int :
         '''
         Return the Lamport clock of the process
         '''
         return self.clock
 
-    def inc_clock(self, inc=1):
+    def inc_clock(self, inc=1) -> None:
         '''
         Increment the Lamport clock by inc, default value is 1
         '''
         with self.clock_semaphore :
             self.clock += inc
     
-    def change_clock(self, clock) :
+    def change_clock(self, clock) -> None :
         '''
         Change the Lamport clock to the max between the current clock and a new clock received, then increment by 1
         '''
         with self.clock_semaphore :
             self.clock = max(self.clock, int(clock)) + 1
     
-    def getMessage(self) :
+    def getMessage(self) -> None | any :
         '''
         Return the first message in the mailbox
         '''
@@ -63,13 +63,13 @@ class Com() :
             return msg.getPayload()
         return None
     
-    def getNumberMessage(self) :
+    def getNumberMessage(self) -> int :
         '''
         Return the number of message in the mailbox
         '''
         return len(self.boite_aux_lettre)
     
-    def broadcast(self, obj) :
+    def broadcast(self, obj) -> None :
         '''
         Send a message to all process except itself
         Input :
@@ -80,7 +80,7 @@ class Com() :
         PyBus.Instance().post(msg)
 
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastMessage)
-    def onBroadcast(self, msg) :
+    def onBroadcast(self, msg) -> None:
         '''
         Receive a broadcast message and add it to the mailbox
         '''
@@ -91,7 +91,7 @@ class Com() :
                 self.change_clock(msg.getClock())
                 self.boite_aux_lettre.append(msg)
     
-    def sendTo(self, obj, dest) :
+    def sendTo(self, obj, dest) -> None :
         '''
         Send a message to a specific process
         Input :
@@ -102,7 +102,7 @@ class Com() :
         PyBus.Instance().post(MessageTo(obj, dest, self.getClock()))
 
     @subscribe(threadMode = Mode.PARALLEL, onEvent=MessageTo)
-    def onReceive(self, msg) :
+    def onReceive(self, msg) -> None :
         '''
         Receive a dedicated message and add it to the mailbox
         '''
@@ -113,7 +113,7 @@ class Com() :
                 self.change_clock(msg.getClock())
                 self.boite_aux_lettre.append(msg)
     
-    def requestSC(self) :
+    def requestSC(self) -> None :
         '''
         Request the access to the critical section, block until the process receive the token
         '''
@@ -122,7 +122,7 @@ class Com() :
         self.request_lock.clear()
         self.request_lock.wait(10)
     
-    def releaseSC(self) :
+    def releaseSC(self) -> None :
         '''
         Release the access to the critical section
         '''
@@ -131,7 +131,7 @@ class Com() :
         self.token_lock.set()
     
     @subscribe(threadMode = Mode.PARALLEL, onEvent=Token)
-    def onToken(self, token):
+    def onToken(self, token) -> None :
         '''
         Receive a token, if the process requested the critical section it will keep the token until the end of the critical section,
         otherwise or when the process exit the critical section, it will send the token to the next process
@@ -149,7 +149,7 @@ class Com() :
                 token.setDest((self.myId + 1) % self.npProcess)
                 PyBus.Instance().post(token)
     
-    def sendFirstToken(self) :
+    def sendFirstToken(self) -> None :
         '''
         Send the first token to the next process
         '''
@@ -157,7 +157,7 @@ class Com() :
         print(f"sendFirstToken to {str(dest)}")
         PyBus.Instance().post(Token(dest))
 
-    def synchronize(self) :
+    def synchronize(self) -> None :
         '''
         Synchronize all process, the process wait until all process are synchronized before continue
         '''
@@ -176,7 +176,7 @@ class Com() :
             self.syncbroadcast_lock.clear()
             self.syncbroadcast_lock.wait(10)
     
-    def broadcastSync(self, obj, sender) :
+    def broadcastSync(self, obj, sender) -> None :
         '''
         Send a synchronization message to all process except the sender
         Input :
@@ -190,7 +190,7 @@ class Com() :
             self.synchronize()
     
     @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastSync)
-    def onBroadcastSync(self, msg) :
+    def onBroadcastSync(self, msg) -> None :
         '''
         Receive a synchronization message and add it to the mailbox
         '''
@@ -199,8 +199,6 @@ class Com() :
             self.boite_aux_lettre.append(msg)
             self.synchronize()
         
-        
-
 
     def stop(self):
         self.isAlive = False
