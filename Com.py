@@ -1,6 +1,7 @@
 import threading
 from messages.BroadcastSync import BroadcastSync
 from messages.Message import Message
+from messages.MessageSync import MessageSync
 from messages.MessageTo import MessageTo
 from messages.BroadcastMessage import BroadcastMessage
 from Token import Token
@@ -22,6 +23,8 @@ class Com() :
         self.token_lock = threading.Event()
         self.sync_lock = threading.Event()
         self.syncbroadcast_lock = threading.Event()
+        self.syncSender_lock = threading.Event()
+        self.syncReceiver_lock = threading.Event()
         self.boite_aux_lettre = []
         self.myId = myId
         self.etat = "null"
@@ -199,6 +202,41 @@ class Com() :
             self.boite_aux_lettre.append(msg)
             self.synchronize()
         
+    def sendToSync(self, obj, dest) -> None :
+        '''
+        Send a synchronization message to a specific process
+        Input :
+            obj : any : payload of the message to send
+            dest : int : id of the process to send the message
+        '''
+        self.inc_clock()
+        PyBus.Instance().post(MessageSync(obj, dest, self.getClock()))
+        self.syncSender_lock.clear()
+        self.syncSender_lock.wait(10)
+    
+    def recevFromSync(self, msg, sender) -> None :
+        '''
+        Receive a synchronization message and add it to the mailbox
+        Input :
+            obj : any : payload of the message to send
+            sender : int : id of the process that send the message
+        '''
+        self.syncReceiver_lock.clear()
+        self.syncReceiver_lock.wait(10)
+        self.change_clock(msg.getClock())
+        self.boite_aux_lettre.append(msg)
+        PyBus.Instance().post(MessageSync("OK", sender, self.getClock()))
+    
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=MessageSync)
+    def onReceiveSync(self, msg) -> None :
+        '''
+        Receive a synchronization message and unlock process
+        '''
+        if msg.getDest() == self.getMyId() :
+            self.change_clock(msg.getClock())
+            self.boite_aux_lettre.append(msg)
+            self.syncSender_lock.set()
+            
 
     def stop(self):
         self.isAlive = False
