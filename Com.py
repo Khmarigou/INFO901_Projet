@@ -1,4 +1,5 @@
 import threading
+from messages.BroadcastSync import BroadcastSync
 from messages.Message import Message
 from messages.MessageTo import MessageTo
 from messages.BroadcastMessage import BroadcastMessage
@@ -174,6 +175,31 @@ class Com() :
             self.sendTo("sync", self.myId - 1)
             self.syncbroadcast_lock.clear()
             self.syncbroadcast_lock.wait(10)
+    
+    def broadcastSync(self, obj, sender) :
+        '''
+        Send a synchronization message to all process except the sender
+        Input :
+            obj : any : payload of the message to send
+            sender : int : id of the process that send the message
+        '''
+        if self.myId == sender :
+            self.inc_clock()
+            msg = BroadcastSync(self.getMyId(), obj, self.getClock())
+            PyBus.Instance().post(msg)
+            self.synchronize()
+    
+    @subscribe(threadMode = Mode.PARALLEL, onEvent=BroadcastSync)
+    def onBroadcastSync(self, msg) :
+        '''
+        Receive a synchronization message and add it to the mailbox
+        '''
+        if msg.getSender() != self.getMyId() :
+            self.change_clock(msg.getClock())
+            self.boite_aux_lettre.append(msg)
+            self.synchronize()
+        
+        
 
 
     def stop(self):
